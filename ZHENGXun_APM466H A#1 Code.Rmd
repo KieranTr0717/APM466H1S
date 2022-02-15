@@ -1,0 +1,381 @@
+---
+title: "MAT1856/APM466 Assignment 1"
+author: "Xun Zheng, Student #: 1004734086"
+date: "February, 2022"
+output:
+  pdf_document: default
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(tidyverse)
+#install.packages("jrvFinance")
+library("jrvFinance")
+#install.packages("lubridate")
+library(readxl)
+```
+
+```{r, include = FALSE}
+bond <- read_excel("/Users/xunzheng/Desktop/466 A1.xlsx")
+bond_q2 <- read_excel("/Users/xunzheng/Desktop/466-Q2.xlsx")
+```
+
+# Fundamental Questions - 25 points
+
+2. 
+```{r, echo=FALSE}
+library("kableExtra")
+knitr::kable(bond_q2, caption="11 Selected Bonds") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+4(a).
+```{r, include=FALSE}
+CPN <- as.numeric(bond$Coupon)
+maturity_date <- gsub(x=bond$Maturity_date,pattern=" UTC",replacement="",fixed=T)
+close_price_date <- c("2021-01-10","2021-01-11","2021-01-12","2021-01-13",
+                      "2021-01-14","2021-01-17","2021-01-18","2021-01-19",
+                      "2021-01-20","2021-01-21","2021-01-24")
+close_price_matrix = matrix(c(bond$'44571',bond$'44572',bond$'44573',
+                              bond$'44574',bond$'44575',bond$'44578',
+                              bond$'44579',bond$'44580',bond$'44581',
+                              bond$'44582',bond$'44585'),
+                            nrow=11,ncol=11,byrow=TRUE)
+
+# Calculate YTM matrix
+ytm_matrix=matrix('numeric',nrow=11,ncol=11)
+for(j in c(1:11)){
+  close_price=close_price_matrix[,j]
+  for(i in c(1:11)){
+    ytm_matrix[i,j] <- bond.yield(settle=close_price_date[i],mature=maturity_date[j],
+                                  coupon=CPN[j],freq=2,close_price[i],
+                          convention=c("30/360","ACT/ACT","ACT/360","30/360E"),
+                          comp.freq = 2, redemption_value = 100)
+  }
+}
+```
+
+```{r, include=FALSE}
+# Calculate time to maturity in year-fraction
+year_fraction=matrix('numeric',nrow=11,ncol=11)
+for(i in c(1:11)){
+  for(j in c(1:11)){
+    year_fraction[i,j]=yearFraction(close_price_date[i],maturity_date[j],freq = 2,
+                          convention=c("30/360","ACT/ACT","ACT/360","30/360E"))
+  }
+}
+```
+
+```{r, fig.width=7, fig.height=3.5, message=FALSE, echo=FALSE}
+# Plot YTM curve
+year <- seq(0, 5, 0.5)
+plot(year,ytm_matrix[1,],type="o",main="5-year YTM Curve", col="black",
+     xlab="Year",ylab="YTM",ylim=c(0,0.02),lwd=1.0)
+colour=c("red","coral","darkgoldenrod1","green","cornflowerblue","blue",
+         "blueviolet","deeppink","darksalmon","aquamarine")
+for (i in c(2:11)){
+  lines(year, ytm_matrix[i,],type="o",col=colour[i-1],lwd=1.0)
+}
+
+# Add a legend to the plot
+legend("bottomright",pch=c(15,15),legend=c("2021-01-10","2021-01-11","2021-01-12",
+                                           "2021-01-13","2021-01-14","2021-01-17",
+                                           "2021-01-18","2021-01-19","2021-01-20",
+                                           "2021-01-21","2021-01-24"),
+       col=c("black","red","coral","darkgoldenrod1","green","cornflowerblue",
+             "blue","blueviolet","deeppink","darksalmon","aquamarine"),
+       lty=0.9,cex=0.4)
+```
+
+(b).
+```{r, include=FALSE}
+### Calculate spot rate
+# Calculate dirty price
+dirty_price <- matrix('numeric',nrow=11,ncol=11)
+
+for(j in 1:11){
+  for (i in 1:11){
+    dirty_price[j,i]=bond.TCF(close_price_date[j],maturity_date[i],CPN[i],
+                     freq=2)$accrued + close_price_matrix[j,i]
+  }
+}
+
+# Calculate cash flow
+cash_flow <- list()
+for (i in 1:11){
+  cash_flow=bond.TCF(close_price_date[i],maturity_date[i],CPN[i],
+                     freq=2,redemption_value=100)$cash_flow
+  print(cash_flow)
+}
+```
+
+```{r, include=FALSE}
+cash_flow_1 = c(100.25)
+cash_flow_2 = c(0.875,100.875)
+cash_flow_3 = c(1.125,1.125,101.125)
+cash_flow_4 = c(0.75,0.75,0.75,100.75)
+cash_flow_5 = c(0.625,0.625,0.625,0.625,100.625)
+cash_flow_6 = c(0.25,0.25,0.25,0.25,0.25,100.25)
+cash_flow_7 = c(0.125,0.125,0.125,0.125,0.125,0.125,100.125)
+cash_flow_8 = c(0.5,0.5,0.5,0.5,0.5,0.5,0.5,100.5)
+cash_flow_9 = c(0.625,0.625,0.625,0.625,0.625,0.625,0.625,0.625,100.625)
+cash_flow_10 = c(0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,100.75)
+cash_flow_11 = c(0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,0.75,100.75)
+
+# Calculate spot curve
+spot_matrix <- matrix(nrow=11,ncol=11)
+
+for (i in 1:11){
+  t_1=as.numeric(year_fraction[i,1])
+  sf_1=function(x) as.numeric(dirty_price[i,1]) - cash_flow_1[1]*(1+x/2)^(-2*t_1)
+  s_1=uniroot(sf_1,c(0,1))$root
+  
+  t_2=as.numeric(year_fraction[i,2])
+  sf_2=function(x) as.numeric(dirty_price[i,2]) - cash_flow_2[1]*(1+s_1/2)^(-2*(t_2-0.5*1)) - 
+    cash_flow_2[2]*(1+x/2)^(-2*t_2)
+  s_2=uniroot(sf_2,c(0,1))$root
+  
+  t_3=as.numeric(year_fraction[i,3])
+  sf_3=function(x) as.numeric(dirty_price[i,3]) - cash_flow_3[1]*(1+s_1/2)^(-2*(t_3-0.5*2)) - 
+    cash_flow_3[2]*(1+s_2/2)^(-2*(t_3-0.5*1)) - cash_flow_3[3]*(1+x/2)^(-2*t_3)
+  s_3=uniroot(sf_3,c(0,1))$root
+  
+  t_4=as.numeric(year_fraction[i,4])
+  sf_4=function(x) as.numeric(dirty_price[i,4]) - cash_flow_4[1]*(1+s_1/2)^(-2*(t_4-0.5*3)) - 
+    cash_flow_4[2]*(1+s_2/2)^(-2*(t_4-0.5*2)) - cash_flow_4[3]*(1+s_3/2)^(-2*(t_4-0.5*1)) - 
+    cash_flow_4[4]*(1+x/2)^(-2*t_4)
+  s_4=uniroot(sf_4,c(0,1))$root
+  
+  t_5=as.numeric(year_fraction[i,5])
+  sf_5=function(x) as.numeric(dirty_price[i,5]) - cash_flow_5[1]*(1+s_1/2)^(-2*(t_5-0.5*4)) - 
+    cash_flow_5[2]*(1+s_2/2)^(-2*(t_5-0.5*3)) - cash_flow_5[3]*(1+s_3/2)^(-2*(t_5-0.5*2)) - 
+    cash_flow_5[4]*(1+s_4/2)^(-2*(t_5-0.5*1)) - cash_flow_5[5]*(1+x/2)^(-2*t_5)
+  s_5=uniroot(sf_5,c(0,1))$root
+  
+  t_6=as.numeric(year_fraction[i,6])
+  sf_6=function(x) as.numeric(dirty_price[i,6]) - cash_flow_6[1]*(1+s_1/2)^(-2*(t_6-0.5*5)) - 
+    cash_flow_6[2]*(1+s_2/2)^(-2*(t_6-0.5*4)) - cash_flow_6[3]*(1+s_3/2)^(-2*(t_6-0.5*3)) - 
+    cash_flow_6[4]*(1+s_4/2)^(-2*(t_6-0.5*2)) - cash_flow_6[5]*(1+s_5/2)^(-2*(t_6-0.5*1)) - 
+    cash_flow_6[6]*(1+x/2)^(-2*t_6)
+  s_6=uniroot(sf_6,c(0,1))$root
+  
+  t_7=as.numeric(year_fraction[i,7])
+  sf_7=function(x) as.numeric(dirty_price[i,7]) - cash_flow_7[1]*(1+s_1/2)^(-2*(t_7-0.5*6)) - 
+    cash_flow_7[2]*(1+s_2/2)^(-2*(t_7-0.5*5)) - cash_flow_7[3]*(1+s_3/2)^(-2*(t_7-0.5*4)) - 
+    cash_flow_7[4]*(1+s_4/2)^(-2*(t_7-0.5*3)) - cash_flow_7[5]*(1+s_5/2)^(-2*(t_7-0.5*2)) - 
+    cash_flow_7[6]*(1+s_6/2)^(-2*(t_7-0.5*1)) - cash_flow_7[7]*(1+x/2)^(-2*t_7)
+  s_7=uniroot(sf_7,c(0,1))$root
+  
+  t_8=as.numeric(year_fraction[i,8])
+  sf_8=function(x) as.numeric(dirty_price[i,8]) - cash_flow_8[1]*(1+s_1/2)^(-2*(t_8-0.5*7)) - 
+    cash_flow_8[2]*(1+s_2/2)^(-2*(t_8-0.5*6)) - cash_flow_8[3]*(1+s_3/2)^(-2*(t_8-0.5*5)) - 
+    cash_flow_8[4]*(1+s_4/2)^(-2*(t_8-0.5*4)) - cash_flow_8[5]*(1+s_5/2)^(-2*(t_8-0.5*3)) - 
+    cash_flow_8[6]*(1+s_6/2)^(-2*(t_8-0.5*2)) - cash_flow_8[7]*(1+s_7/2)^(-2*(t_8-0.5*1)) - 
+    cash_flow_8[8]*(1+x/2)^(-2*t_8)
+  s_8=uniroot(sf_8,c(0,1))$root
+  
+  t_9=as.numeric(year_fraction[i,9])
+  sf_9=function(x) as.numeric(dirty_price[i,9]) - cash_flow_9[1]*(1+s_1/2)^(-2*(t_9-0.5*8)) - 
+    cash_flow_9[2]*(1+s_2/2)^(-2*(t_9-0.5*7)) - cash_flow_9[3]*(1+s_3/2)^(-2*(t_9-0.5*6)) - 
+    cash_flow_9[4]*(1+s_4/2)^(-2*(t_9-0.5*5)) - cash_flow_9[5]*(1+s_5/2)^(-2*(t_9-0.5*4)) - 
+    cash_flow_9[6]*(1+s_6/2)^(-2*(t_9-0.5*3)) - cash_flow_9[7]*(1+s_7/2)^(-2*(t_9-0.5*2)) - 
+    cash_flow_9[8]*(1+s_8/2)^(-2*(t_9-0.5*1)) - cash_flow_9[9]*(1+x/2)^(-2*t_9)
+  s_9=uniroot(sf_9,c(0,1))$root
+  
+  t_10=as.numeric(year_fraction[i,10])
+  sf_10=function(x) as.numeric(dirty_price[i,10]) - cash_flow_10[1]*(1+s_1/2)^(-2*(t_10-0.5*9)) - 
+    cash_flow_10[2]*(1+s_2/2)^(-2*(t_10-0.5*8)) - cash_flow_10[3]*(1+s_3/2)^(-2*(t_10-0.5*7)) - 
+    cash_flow_10[4]*(1+s_4/2)^(-2*(t_10-0.5*6)) - cash_flow_10[5]*(1+s_5/2)^(-2*(t_10-0.5*5)) - 
+    cash_flow_10[6]*(1+s_6/2)^(-2*(t_10-0.5*4)) - cash_flow_10[7]*(1+s_7/2)^(-2*(t_10-0.5*3)) - 
+    cash_flow_10[8]*(1+s_8/2)^(-2*(t_10-0.5*2)) - cash_flow_10[9]*(1+s_9/2)^(-2*(t_10-0.5*1)) - 
+    cash_flow_10[10]*(1+x/2)^(-2*t_10)
+  s_10=uniroot(sf_10,c(0,1))$root
+  
+  t_11=as.numeric(year_fraction[i,11])
+  sf_11=function(x) as.numeric(dirty_price[i,11]) - cash_flow_11[1]*(1+s_1/2)^(-2*(t_11-0.5*10)) - 
+    cash_flow_11[2]*(1+s_2/2)^(-2*(t_11-0.5*9)) - cash_flow_11[3]*(1+s_3/2)^(-2*(t_11-0.5*8)) - 
+    cash_flow_11[4]*(1+s_4/2)^(-2*(t_11-0.5*7)) - cash_flow_11[5]*(1+s_5/2)^(-2*(t_11-0.5*6)) - 
+    cash_flow_11[6]*(1+s_6/2)^(-2*(t_11-0.5*5)) - cash_flow_11[7]*(1+s_7/2)^(-2*(t_11-0.5*4)) - 
+    cash_flow_11[8]*(1+s_8/2)^(-2*(t_11-0.5*3)) - cash_flow_11[9]*(1+s_9/2)^(-2*(t_11-0.5*2)) - 
+    cash_flow_11[10]*(1+s_10/2)^(-2*(t_11-0.5*1)) - cash_flow_11[11]*(1+x/2)^(-2*t_11)
+  s_11=uniroot(sf_11,c(0,1))$root
+  
+  s=rbind(s_1,s_2,s_3,s_4,s_5,s_6,s_7,s_8,s_9,s_10,s_11)
+  spot_matrix[i,] <- s
+}
+```
+
+```{r, fig.width=7, fig.height=3.5, message=FALSE, echo=FALSE}
+# Plot spot curve
+year <- seq(0, 5, 0.5)
+plot(year,spot_matrix[1,],type="o",main="5-year Spot Curve", col="black",
+     xlab="Year",ylab="Spot Rate",ylim=c(0,0.015),lwd=0.8)
+colour=c("red","coral","darkgoldenrod1","green","cornflowerblue","blue",
+         "blueviolet","deeppink","darksalmon","aquamarine")
+for (i in c(2:11)){
+  lines(year, spot_matrix[i,],type="o",col=colour[i-1],lwd=0.8)
+}
+
+# Add a legend to the plot
+legend("topleft",pch=c(15,15),legend=c("2021-01-10","2021-01-11","2021-01-12",
+                                           "2021-01-13","2021-01-14","2021-01-17",
+                                           "2021-01-18","2021-01-19","2021-01-20",
+                                           "2021-01-21","2021-01-24"),
+       col=c("black","red","coral","darkgoldenrod1","green","cornflowerblue",
+             "blue","blueviolet","deeppink","darksalmon","aquamarine"),
+       lty=0.9,cex=0.4)
+```
+
+(c).
+```{r, include=FALSE}
+### Forward curve
+long <- c(yearFraction('2022-10-01','2023-04-01'),
+                                 yearFraction('2023-10-01','2024-04-01'),
+                                 yearFraction('2024-10-01','2025-04-01'),
+                                 yearFraction('2025-10-01','2026-04-01'),
+                                 yearFraction('2026-10-01','2027-04-01'))
+
+short <- c(yearFraction('2022-10-01','2023-02-28'),
+                                 yearFraction('2023-10-01','2024-02-28'),
+                                 yearFraction('2024-10-01','2025-02-28'),
+                                 yearFraction('2025-10-01','2026-02-28'),
+                                 yearFraction('2026-10-01','2027-02-28'))
+
+a=11
+oct_spot_rate1 <- c(spot_matrix[a,][2],spot_matrix[a,][4],spot_matrix[a,][6],
+                    spot_matrix[a,][8],spot_matrix[a,][10])
+apr_spot_rate1 <- c(spot_matrix[a,][3],spot_matrix[a,][5],spot_matrix[a,][7],
+                    spot_matrix[a,][9],spot_matrix[a,][11])
+
+est_spot_rate1 <- c()
+
+for(i in c(1:5)){
+  est_spot_rate1[i] = oct_spot_rate1[i] + (apr_spot_rate1[i] - oct_spot_rate1[i]) *
+    (short[i]/long[i])
+}
+est_spot_rate1
+```
+
+
+```{r, include=FALSE}
+est_spot_rate1 <- c(0.0007972252,0.0069918413,0.0111602026,0.0110693496,0.0097175524)
+est_spot_rate2 <- c(0.0007853861,0.0068911634,0.0110370266,0.0109645677,0.0095282119)
+est_spot_rate3 <- c(0.0009127238,0.0070131337,0.0111059493,0.0110796136,0.0096946418)
+est_spot_rate4 <- c(0.001022597,0.007068572,0.011075626,0.011012285,0.009612445)
+est_spot_rate5 <- c(0.001123885,0.007297637,0.011288688,0.011230345,0.009896064)
+est_spot_rate6 <- c(0.001649689,0.007888955,0.011905330,0.011841538,0.010354838)
+est_spot_rate7 <- c(0.001883083,0.008190491,0.012348660,0.012274933,0.010726596)
+est_spot_rate8 <- c(0.001890876,0.008237825,0.012451308,0.012350671,0.010774712)
+est_spot_rate9 <- c(0.001925280,0.008244705,0.012405326,0.012301549,0.010723299)
+est_spot_rate10 <- c(0.001634547,0.007863282,0.012050835,0.011865264,0.010179315)
+est_spot_rate11 <- c(0.001516587,0.007570731,0.011706785,0.011458939,0.009719180)
+
+est_spot_5years <- rbind(est_spot_rate1,est_spot_rate2,est_spot_rate3,est_spot_rate4,
+                         est_spot_rate5,est_spot_rate6,est_spot_rate7,est_spot_rate8,
+                         est_spot_rate9,est_spot_rate10,est_spot_rate11)
+
+#Calculate 4 years forward rate 1y1y, 1y2y, 1y3y, 1y4y
+forward_matrix = matrix(nrow=11,ncol=4)
+
+for (j in c(1:11)){
+  for (i in c(1:4)){
+    ff=function(x) ((1+est_spot_5years[j,1]/2)^2)*((1+x/2)^(2*i)) - 
+      (1+est_spot_5years[j,i+1]/2)^(2*(i+1))
+    forward_matrix[j,i] <- uniroot(ff,c(0,1))$root
+  }
+}
+```
+
+```{r, fig.width=7, fig.height=3.5, message=FALSE, echo=FALSE}
+# Plot forward curve
+year <- c(2,3,4,5)
+plot(year,forward_matrix[1,],type="o",main="Forward Curve", col="black",xlab="Year",
+     ylab="Forward Rate",ylim=c(0,0.02),lwd=0.8)
+colour=c("red","coral","darkgoldenrod1","green","cornflowerblue","blue",
+         "blueviolet","deeppink","darksalmon","aquamarine")
+for (i in c(2:11)){
+  lines(year, forward_matrix[i,],type="o",col=colour[i-1],lwd=0.8)
+}
+
+# Add a legend to the plot
+legend("bottomleft",pch=c(15,15),legend=c("2021-01-10","2021-01-11","2021-01-12",
+                                           "2021-01-13","2021-01-14","2021-01-17",
+                                           "2021-01-18","2021-01-19","2021-01-20",
+                                           "2021-01-21","2021-01-24"),
+       col=c("black","red","coral","darkgoldenrod1","green","cornflowerblue",
+             "blue","blueviolet","deeppink","darksalmon","aquamarine"),
+       lty=0.9,cex=0.4)
+```
+
+5.
+```{r, include=FALSE}
+# Question 5
+# (a) cov matrix for YTM
+exact_ytm_matrix = matrix(nrow=11,ncol=5)
+for (v in c(1:11)){
+  exact_ytm_matrix[v,1]=est_spot_5years[v,1]
+  for (i in c(2,3,4,5)){
+    exact_ytm_matrix[v,i] <- as.numeric(ytm_matrix[v,i*2])+
+      (as.numeric(ytm_matrix[v,(i*2)+1]) - as.numeric(ytm_matrix[v,i*2]))
+  }
+}
+```
+
+```{r, include=FALSE}
+# log return of YTM
+log_ytm_matrix <- matrix(nrow=10,ncol=5)
+for (i in c(1:5)){
+  for(j in c(1:10)){
+    log_ytm_matrix[j,i] <- log(exact_ytm_matrix[(j+1),i]/exact_ytm_matrix[j,i])
+  }
+}
+```
+
+```{r, echo=FALSE}
+### Covariance matrix for log YTM
+ytm_covariance <- cov(log_ytm_matrix,log_ytm_matrix)
+knitr::kable(ytm_covariance, caption="Covariance matrix for the time series of daily log-returns of yield") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, include=FALSE}
+### (b). Cov matrix for forward rate
+#log return of forward rates
+log_forward_matrix <- matrix(nrow=10,ncol=4)
+for (i in c(1:4)){
+  for (j in c(1:10)){
+    log_forward_matrix[j,i]<-log(forward_matrix[(j+1),i]/forward_matrix[j,i])
+  }
+}
+log_forward_matrix
+```
+
+```{r, echo=FALSE}
+# Q5. Covariance matrix for log forward rate
+forward_covariance <- cov(log_forward_matrix,log_forward_matrix)
+knitr::kable(forward_covariance, caption="Covariance matrix for the time series of daily log-returns of forward rates") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+6.
+```{r, include=FALSE}
+# Eigenvalues for YTM cov matrix
+print(eigen(ytm_covariance)$values)
+```
+
+```{r, echo=FALSE}
+# Eigenvectors for YTM cov matrix
+knitr::kable(eigen(ytm_covariance)$vectors, caption="Eigenvectors of covariance matrix for log-return of yield") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
+
+```{r, include=FALSE}
+# Eigenvalues for forward rate cov matrix
+print(eigen(forward_covariance)$values)
+```
+
+```{r, echo=FALSE}
+# Eigenvectors for forward rate cov matrix
+knitr::kable(eigen(forward_covariance)$vectors, caption="Eigenvectors of covariance matrix for log-return of forward rates") %>%
+  kable_styling(latex_options = "HOLD_position")
+```
